@@ -129,7 +129,18 @@ func (r blockResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	client, err := r.provider.GetClient(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create client, got error: %s", err))
+		return
+	}
 
+	mat, err := client.GetBlockMaterial(ctx, data.Position.X, data.Position.Y, data.Position.Z)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update block, got error: %s", err))
+		return
+	}
+	data.Material = mat
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }

@@ -36,6 +36,21 @@ func New(address string, password string) (*Client, error) {
 func (c Client) GetPlayer(ctx context.Context, name string) error {
 	return nil
 }
+func (c Client) GetBlockMaterial(ctx context.Context, x, y, z int) (string, error) {
+	command := fmt.Sprintf("info block %d %d %d grep Material", x, y, z)
+	res, err := c.client.SendCommand(command)
+	if err != nil {
+		return "", err
+	}
+	sl := strings.Split(res, " ")
+	mat := sl[len(sl)-1]
+
+	if strings.Contains(mat, ":") {
+		return mat, nil
+	}
+
+	return fmt.Sprintf("minecraft:%s", mat), nil
+}
 
 // Creates a block.
 func (c Client) CreateBlock(ctx context.Context, material string, x, y, z int) error {
