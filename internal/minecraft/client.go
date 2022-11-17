@@ -3,6 +3,7 @@ package minecraft
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,7 @@ type Client struct {
 }
 
 type Player struct {
+	Position []string `json:"Pos"`
 }
 
 func New(address string, password string) (*Client, error) {
@@ -33,7 +35,65 @@ func New(address string, password string) (*Client, error) {
 }
 
 // Get a player.
-func (c Client) GetPlayer(ctx context.Context, name string) error {
+func (c Client) GetPlayer(ctx context.Context, name string) (string, error) {
+	command := fmt.Sprintf("data get entity %s", name)
+	res, err := c.client.SendCommand(command)
+	if err != nil {
+		return "", err
+	}
+	reg := regexp.MustCompile(`.+ has the following entity data: `)
+	res = reg.ReplaceAllString(res, "${1}")
+	m := make(map[string]string)
+	res = res[1 : len(res)-1]
+	arr := strings.Split(res, " ")
+	fmt.Printf("%s\n", res)
+	for i := 0; i < len(arr); i++ {
+		fmt.Println(arr[i])
+		if arr[i][len(arr[i])-1] == ':' {
+			value := arr[i+1]
+			num := i + 1
+			if arr[i+1][0] == '[' {
+				num = num + 1
+				for arr[num][len(arr[num])-2:] != "]," {
+					fmt.Printf("next %s\n", arr[num])
+					value = value + arr[num]
+					num = num + 1
+				}
+				value = value + arr[num]
+			}
+			m[arr[i][:len(arr[i])-1]] = value
+			i = num
+
+		}
+	}
+
+	return m["Pos"], nil
+}
+func (c Client) CreatePlayer(ctx context.Context, name string) error {
+	command := fmt.Sprintf("player %s spawn", name)
+	_, err := c.client.SendCommand(command)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+func (c Client) MovePlayer(ctx context.Context, name string, x, y, z int) error {
+	command := fmt.Sprintf("tp %s %d %d %d", name, x, y, z)
+	_, err := c.client.SendCommand(command)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+func (c Client) KickPlayer(ctx context.Context, id string) error {
+	command := fmt.Sprintf("player %s kill", id)
+	_, err := c.client.SendCommand(command)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 func (c Client) GetBlockMaterial(ctx context.Context, x, y, z int) (string, error) {
