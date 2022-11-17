@@ -33,27 +33,18 @@ func (t playerResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.D
 				Attributes: tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
 					"x": {
 						MarkdownDescription: "X coordinate of the player",
-						Type:                types.NumberType,
+						Type:                types.Float64Type,
 						Required:            true,
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.RequiresReplace(),
-						},
 					},
 					"y": {
 						MarkdownDescription: "Y coordinate of the player",
-						Type:                types.NumberType,
+						Type:                types.Float64Type,
 						Required:            true,
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.RequiresReplace(),
-						},
 					},
 					"z": {
 						MarkdownDescription: "Z coordinate of the player",
-						Type:                types.NumberType,
+						Type:                types.Float64Type,
 						Required:            true,
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.RequiresReplace(),
-						},
 					},
 				}),
 			},
@@ -80,9 +71,9 @@ type playerResourceData struct {
 	Id       types.String `tfsdk:"id"`
 	Name     string       `tfsdk:"name"`
 	Position struct {
-		X int `tfsdk:"x"`
-		Y int `tfsdk:"y"`
-		Z int `tfsdk:"z"`
+		X float64 `tfsdk:"x"`
+		Y float64 `tfsdk:"y"`
+		Z float64 `tfsdk:"z"`
 	} `tfsdk:"position"`
 }
 
@@ -143,8 +134,9 @@ func (r playerResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest,
 		return
 	}
 
-	resp.Diagnostics.AddError("Client Error", fmt.Sprintf("%s", res))
-	return
+	data.Position.X = res.Position.X
+	data.Position.Y = res.Position.Y
+	data.Position.Z = res.Position.Z
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }
@@ -152,13 +144,22 @@ func (r playerResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest,
 func (r playerResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
 	var data playerResourceData
 
-	diags := req.State.Get(ctx, &data)
+	diags := req.Plan.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	client, err := r.provider.GetClient(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create client, got error: %s", err))
+		return
+	}
+	err = client.MovePlayer(ctx, data.Name, data.Position.X, data.Position.Y, data.Position.Z)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to move player, got error: %s", err))
+		return
+	}
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 }

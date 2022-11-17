@@ -15,7 +15,11 @@ type Client struct {
 }
 
 type Player struct {
-	Position []string `json:"Pos"`
+	Position struct {
+		X float64
+		Y float64
+		Z float64
+	}
 }
 
 func New(address string, password string) (*Client, error) {
@@ -35,11 +39,12 @@ func New(address string, password string) (*Client, error) {
 }
 
 // Get a player.
-func (c Client) GetPlayer(ctx context.Context, name string) (string, error) {
+func (c Client) GetPlayer(ctx context.Context, name string) (Player, error) {
+	var p Player
 	command := fmt.Sprintf("data get entity %s", name)
 	res, err := c.client.SendCommand(command)
 	if err != nil {
-		return "", err
+		return p, err
 	}
 	reg := regexp.MustCompile(`.+ has the following entity data: `)
 	res = reg.ReplaceAllString(res, "${1}")
@@ -63,11 +68,22 @@ func (c Client) GetPlayer(ctx context.Context, name string) (string, error) {
 			}
 			m[arr[i][:len(arr[i])-1]] = value
 			i = num
-
 		}
 	}
-
-	return m["Pos"], nil
+	pos := strings.Split(strings.ReplaceAll(m["Pos"][1:len(m["Pos"])-2], "d", ""), ",")
+	p.Position.X, err = strconv.ParseFloat(pos[0], 64)
+	if err != nil {
+		return p, err
+	}
+	p.Position.Y, err = strconv.ParseFloat(pos[1], 64)
+	if err != nil {
+		return p, err
+	}
+	p.Position.Z, err = strconv.ParseFloat(pos[2], 64)
+	if err != nil {
+		return p, err
+	}
+	return p, nil
 }
 func (c Client) CreatePlayer(ctx context.Context, name string) error {
 	command := fmt.Sprintf("player %s spawn", name)
@@ -78,8 +94,8 @@ func (c Client) CreatePlayer(ctx context.Context, name string) error {
 
 	return nil
 }
-func (c Client) MovePlayer(ctx context.Context, name string, x, y, z int) error {
-	command := fmt.Sprintf("tp %s %d %d %d", name, x, y, z)
+func (c Client) MovePlayer(ctx context.Context, name string, x, y, z float64) error {
+	command := fmt.Sprintf("tp %s %f %f %f", name, x, y, z)
 	_, err := c.client.SendCommand(command)
 	if err != nil {
 		return err
